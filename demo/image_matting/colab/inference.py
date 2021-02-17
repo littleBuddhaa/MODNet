@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 
 from src.models.modnet import MODNet
-
+from PIL import Image
 
 if __name__ == '__main__':
     # define cmd arguments
@@ -44,9 +44,9 @@ if __name__ == '__main__':
 
     # create MODNet and load the pre-trained ckpt
     modnet = MODNet(backbone_pretrained=False)
-    #modnet = nn.DataParallel(modnet).cuda()
+    modnet = nn.DataParallel(modnet)
 
-    modnet.load_state_dict(torch.load(args.ckpt_path,map_location=torch.device('cpu'))
+    modnet.load_state_dict(torch.load(args.ckpt_path,map_location=torch.device('cpu')))
     modnet.eval()
 
     # inference images
@@ -55,8 +55,8 @@ if __name__ == '__main__':
         print('Process image: {0}'.format(im_name))
 
         # read image
-        im = Image.open(os.path.join(args.input_path, im_name))
-
+        im = Image.open(os.path.join(args.input_path, im_name))#,formats=["PNG"])
+        original_im = im
         # unify image channels to 3
         im = np.asarray(im)
         if len(im.shape) == 2:
@@ -97,4 +97,22 @@ if __name__ == '__main__':
         matte = F.interpolate(matte, size=(im_h, im_w), mode='area')
         matte = matte[0][0].data.cpu().numpy()
         matte_name = im_name.split('.')[0] + '.png'
-        Image.fromarray(((matte * 255).astype('uint8')), mode='L').save(os.path.join(args.output_path, matte_name))
+        matte = Image.fromarray(((matte * 255).astype('uint8')), mode='L')
+        matte.save(os.path.join(args.output_path, matte_name))
+        matte = Image.open(os.path.join(args.output_path, matte_name))
+        # print('sominee' , type(original_im))
+        #saving foreground 
+        image = np.asarray(original_im)
+        if len(image.shape) == 2:
+            image = image[:, :, None]
+        if image.shape[2] == 1:
+            image = np.repeat(image, 3, axis=2)
+        elif image.shape[2] == 4:
+            image = image[:, :, 0:3]
+        matte = np.repeat(np.asarray(matte)[:, :, None], 3, axis=2) / 255
+        foreground_name = im_name.split('.')[0]  + '_processed.png'
+        foreground = image * matte + np.full(image.shape, 255) * (1 - matte)
+        foreground = Image.fromarray(np.uint8(foreground))
+        foreground.save(os.path.join(args.output_path, foreground_name))
+        
+       
