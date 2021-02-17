@@ -45,6 +45,7 @@ if __name__ == '__main__':
     # create MODNet and load the pre-trained ckpt
     modnet = MODNet(backbone_pretrained=False)
     #modnet = nn.DataParallel(modnet).cuda()
+
     modnet.load_state_dict(torch.load(args.ckpt_path,map_location=torch.device('cpu'))
     modnet.eval()
 
